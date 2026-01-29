@@ -102,8 +102,10 @@ class USPSLabelGenerator:
         for _, r in candidates:
             # dedupe near-identical rects
             if any(
-                abs(r.x0 - s.x0) < 1 and abs(r.y0 - s.y0) < 1 and
-                abs(r.x1 - s.x1) < 1 and abs(r.y1 - s.y1) < 1
+                abs(r.x0 - s.x0) < 1
+                and abs(r.y0 - s.y0) < 1
+                and abs(r.x1 - s.x1) < 1
+                and abs(r.y1 - s.y1) < 1
                 for s in slots
             ):
                 continue
@@ -113,7 +115,9 @@ class USPSLabelGenerator:
 
         return slots
 
-    def fetch_usps_zone(self, origin_zip: str, destination_zip: str, shipping_date: str) -> str:
+    def fetch_usps_zone(
+        self, origin_zip: str, destination_zip: str, shipping_date: str
+    ) -> str:
         """
         Calls USPS PostCalc Domestic Zone Chart endpoint and extracts the Zone number.
 
@@ -210,7 +214,6 @@ class USPSLabelGenerator:
             "expected": "Expected Delivery Date: 01/30/2026",
             "tracking_text": "9405 5401 0962 8019 5574 80",
             "barcode_header": "USPS TRACKING #",
-
             # ✅ RANDOMIZED FIELDS (anchors in template)
             "id_028w": "028W0002310105",
             "id_2000": "2000494248",
@@ -223,14 +226,16 @@ class USPSLabelGenerator:
         found_coords["matrix_slots"] = self.find_matrix_slots(page, want=2)
 
         # Pre-generate random replacements (once per label)
-        rand_028w = f"0028W000{randint(0, 9999999):07d}"      # 0028W000 + 7 digits
-        rand_2000 = f"2000{randint(0, 999999):06d}"           # 2000 + 6 digits
+        rand_028w = f"0028W000{randint(0, 9999999):07d}"  # 0028W000 + 7 digits
+        rand_2000 = f"2000{randint(0, 999999):06d}"  # 2000 + 6 digits
 
         # ✅ AUTO ZONE LOOKUP (Origin = from.zip, Destination = to.zip, ShippingDate = data['date'])
         origin_zip = (data.get("from", {}) or {}).get("zip", "")
         destination_zip = (data.get("to", {}) or {}).get("zip", "")
         shipping_date = (data.get("date", "") or "").strip()
-        looked_up_zone = self.fetch_usps_zone(origin_zip, destination_zip, shipping_date)
+        looked_up_zone = self.fetch_usps_zone(
+            origin_zip, destination_zip, shipping_date
+        )
         if looked_up_zone:
             data["zone"] = looked_up_zone  # overwrite / ensure consistent
 
@@ -244,13 +249,23 @@ class USPSLabelGenerator:
             found_coords[key] = primary_rect
 
             if key in ["s_name", "r_name"]:
-                clear_zone = fitz.Rect(primary_rect.x0, primary_rect.y0, primary_rect.x0 + 190, primary_rect.y1 + 45)
+                clear_zone = fitz.Rect(
+                    primary_rect.x0,
+                    primary_rect.y0,
+                    primary_rect.x0 + 190,
+                    primary_rect.y1 + 45,
+                )
                 page.add_redact_annot(clear_zone, fill=(1, 1, 1))
 
             elif key == "code":
                 page.add_redact_annot(
-                    fitz.Rect(primary_rect.x0 + 1.5, primary_rect.y0 + 1.5, primary_rect.x1 - 1.5, primary_rect.y1 - 1.5),
-                    fill=(1, 1, 1)
+                    fitz.Rect(
+                        primary_rect.x0 + 1.5,
+                        primary_rect.y0 + 1.5,
+                        primary_rect.x1 - 1.5,
+                        primary_rect.y1 - 1.5,
+                    ),
+                    fill=(1, 1, 1),
                 )
 
             elif key == "barcode_header":
@@ -259,10 +274,12 @@ class USPSLabelGenerator:
                     primary_rect.x0 - 90,
                     primary_rect.y1 + 1,
                     primary_rect.x1 + 90,
-                    primary_rect.y1 + 70
+                    primary_rect.y1 + 70,
                 )
 
-                inner = fitz.Rect(outer.x0 + 3.0, outer.y0 + 3.0, outer.x1 - 3.0, outer.y1 - 3.0)
+                inner = fitz.Rect(
+                    outer.x0 + 3.0, outer.y0 + 3.0, outer.x1 - 3.0, outer.y1 - 3.0
+                )
                 page.add_redact_annot(inner, fill=(1, 1, 1))
                 found_coords["barcode_slot"] = outer  # keep using OUTER for positioning
 
@@ -271,7 +288,7 @@ class USPSLabelGenerator:
                 for r in rects:
                     page.add_redact_annot(
                         fitz.Rect(r.x0 + 0.5, r.y0 + 0.5, r.x1 - 0.5, r.y1 - 0.5),
-                        fill=(1, 1, 1)
+                        fill=(1, 1, 1),
                     )
 
             insert_queue.append({"rect": primary_rect, "key": key})
@@ -279,7 +296,9 @@ class USPSLabelGenerator:
         # Redact INSIDE the two matrix slots (keep any border lines intact)
         for mr in found_coords.get("matrix_slots", []):
             inset = 2.2
-            inner = fitz.Rect(mr.x0 + inset, mr.y0 + inset, mr.x1 - inset, mr.y1 - inset)
+            inner = fitz.Rect(
+                mr.x0 + inset, mr.y0 + inset, mr.x1 - inset, mr.y1 - inset
+            )
             page.add_redact_annot(inner, fill=(1, 1, 1))
 
         page.apply_redactions()
@@ -294,7 +313,7 @@ class USPSLabelGenerator:
             if not matrices_done and found_coords.get("matrix_slots"):
                 gs1_data = self._gs1_element_string(
                     to_zip=(data.get("to", {}) or {}).get("zip", ""),
-                    tracking_digits=data.get("tracking", "")
+                    tracking_digits=data.get("tracking", ""),
                 )
 
                 try:
@@ -302,7 +321,7 @@ class USPSLabelGenerator:
                     dm_img = generate_barcode(
                         barcode_type="gs1datamatrix",
                         data=gs1_data,
-                        options={"includetext": False, "parsefull": True}
+                        options={"includetext": False, "parsefull": True},
                     )
                     dm_png = self._png_bytes_from_pil(dm_img)
 
@@ -320,7 +339,9 @@ class USPSLabelGenerator:
                         if h < 10:
                             h = 10
 
-                        target = fitz.Rect(cx - w / 2.0, cy - h / 2.0, cx + w / 2.0, cy + h / 2.0)
+                        target = fitz.Rect(
+                            cx - w / 2.0, cy - h / 2.0, cx + w / 2.0, cy + h / 2.0
+                        )
                         page.insert_image(target, stream=dm_png, keep_proportion=False)
 
                 except Exception as e:
@@ -330,46 +351,55 @@ class USPSLabelGenerator:
 
             # --- CARRIER CODE (C003) ---
             if key == "code":
-                carrier_code = ['C003', 'C008', 'C013', 'R144', 'C001']
+                carrier_code = ["C003", "C008", "C013", "R144", "C001"]
                 text = choice(carrier_code)
                 size = 12.8
 
                 if os.path.exists(self.nimbus_bold_path):
                     nim_font = fitz.Font(fontfile=self.nimbus_bold_path)
                     text_w = nim_font.text_length(text, fontsize=size)
-                    page.insert_font(fontname="nimbus-bold", fontfile=self.nimbus_bold_path)
+                    page.insert_font(
+                        fontname="nimbus-bold", fontfile=self.nimbus_bold_path
+                    )
                     target_font = "nimbus-bold"
                 else:
                     text_w = fitz.get_text_length(text, fontname="hebo", fontsize=size)
                     target_font = "hebo"
 
                 x_center = rect.x0 + (rect.width - text_w) / 2
-                page.insert_text(point=(x_center, rect.y1 - 3), text=text, fontname=target_font, fontsize=size)
+                page.insert_text(
+                    point=(x_center, rect.y1 - 3),
+                    text=text,
+                    fontname=target_font,
+                    fontsize=size,
+                )
                 page.draw_rect(rect, color=(0, 0, 0), width=0.8)
 
             # --- BOTTOM LARGE BARCODE + DIGITS (UCC/EAN-128 / GS1-128) ---
             elif key == "barcode_header":
                 gs1_data = self._gs1_element_string(
                     to_zip=(data.get("to", {}) or {}).get("zip", ""),
-                    tracking_digits=data.get("tracking", "")
+                    tracking_digits=data.get("tracking", ""),
                 )
 
                 try:
                     clean_track = re.sub(r"[^0-9]", "", data.get("tracking", ""))
-                    clean_zip = re.sub(r"[^0-9]", "", (data.get("to", {}) or {}).get("zip", ""))
+                    clean_zip = re.sub(
+                        r"[^0-9]", "", (data.get("to", {}) or {}).get("zip", "")
+                    )
 
-                    barcode_content = f"420{clean_zip}\x1D{clean_track}"  # /f == GS
+                    barcode_content = f"420{clean_zip}\x1d{clean_track}"  # /f == GS
                     img = generate_barcode(
                         barcode_type="code128",
                         data=barcode_content,
-                        options={"includetext": False}
+                        options={"includetext": False},
                     )
                     # ✅ UCC/EAN-128 == GS1-128
-                    #img = generate_barcode(
+                    # img = generate_barcode(
                     #    barcode_type="gs1-128",
                     #    data=gs1_data,
                     #    options={"includetext": False, "parsefull": True}
-                    #)
+                    # )
                     barcode_png = self._png_bytes_from_pil(img)
 
                     slot = found_coords["barcode_slot"]
@@ -390,18 +420,27 @@ class USPSLabelGenerator:
                         slot.x0 + SIDE_PAD + SQUEEZE_W,
                         slot.y0 + TOP_PAD - STRETCH_UP,
                         slot.x1 - SIDE_PAD - SQUEEZE_W,
-                        slot.y1 - DIGITS_AREA + STRETCH_DOWN
+                        slot.y1 - DIGITS_AREA + STRETCH_DOWN,
                     )
 
-                    page.insert_image(bars_area, stream=barcode_png, keep_proportion=False)
+                    page.insert_image(
+                        bars_area, stream=barcode_png, keep_proportion=False
+                    )
 
                     # Keep your printed tracking number exactly like before
                     clean_track = re.sub(r"[^0-9]", "", data.get("tracking", ""))
                     display_text = " ".join(re.findall(r".{1,4}", clean_track)).strip()
-                    text_w = fitz.get_text_length(display_text, fontname=DIGITS_FONT, fontsize=DIGITS_SIZE)
+                    text_w = fitz.get_text_length(
+                        display_text, fontname=DIGITS_FONT, fontsize=DIGITS_SIZE
+                    )
                     tx = slot.x0 + (slot.width - text_w) / 2.0
                     ty = slot.y1 - DIGITS_BASELINE_PAD
-                    page.insert_text(point=(tx, ty), text=display_text, fontname=DIGITS_FONT, fontsize=DIGITS_SIZE)
+                    page.insert_text(
+                        point=(tx, ty),
+                        text=display_text,
+                        fontname=DIGITS_FONT,
+                        fontsize=DIGITS_SIZE,
+                    )
 
                 except Exception as e:
                     print(f"Barcode Error: {e}")
@@ -413,7 +452,7 @@ class USPSLabelGenerator:
                     point=(rect.x0 - SHIFT_LEFT, rect.y1 - 1.5),
                     text=rand_028w,
                     fontname="helv",
-                    fontsize=8.0
+                    fontsize=8.0,
                 )
 
             elif key == "id_2000":
@@ -421,17 +460,19 @@ class USPSLabelGenerator:
                     point=(rect.x0, rect.y1 - 1.5),
                     text=rand_2000,
                     fontname="helv",
-                    fontsize=8.0
+                    fontsize=8.0,
                 )
 
             elif key == "expected":
                 dd = data.get("delivery_date", "")
-                text = f"Expected Delivery Date: {dd}" if dd else "Expected Delivery Date:"
+                text = (
+                    f"Expected Delivery Date: {dd}" if dd else "Expected Delivery Date:"
+                )
                 page.insert_text(
                     point=(rect.x0, rect.y1 - 4),
                     text=text,
                     fontname="helv",
-                    fontsize=5.0
+                    fontsize=5.0,
                 )
 
             # --- ADDRESSES / POSTAGE ---
@@ -439,35 +480,54 @@ class USPSLabelGenerator:
                 lines = [
                     data["from"]["name"],
                     data["from"]["address"],
-                    f"{data['from']['city']} {data['from']['state']} {data['from']['zip']}"
+                    f"{data['from']['city']} {data['from']['state']} {data['from']['zip']}",
                 ]
                 curr_y = rect.y1 - 1.5
                 for t in lines:
-                    page.insert_text(point=(rect.x0, curr_y), text=t, fontname="helv", fontsize=8.5)
+                    page.insert_text(
+                        point=(rect.x0, curr_y), text=t, fontname="helv", fontsize=8.5
+                    )
                     curr_y += 10.0
 
             elif key == "r_name":
                 lines = [
                     data["to"]["name"],
                     data["to"]["address"],
-                    f"{data['to']['city']} {data['to']['state']} {data['to']['zip']}"
+                    f"{data['to']['city']} {data['to']['state']} {data['to']['zip']}",
                 ]
                 curr_y = rect.y1 - 1.5
                 for t in lines:
-                    page.insert_text(point=(rect.x0, curr_y), text=t, fontname="helv", fontsize=9.5)
+                    page.insert_text(
+                        point=(rect.x0, curr_y), text=t, fontname="helv", fontsize=9.5
+                    )
                     curr_y += 11.0
 
             elif key == "routing":
                 tw = fitz.get_text_length("0003", fontname="hebo", fontsize=12.0)
-                page.insert_text(point=(rect.x1 - tw, rect.y1), text="0003", fontname="hebo", fontsize=12.0)
+                page.insert_text(
+                    point=(rect.x1 - tw, rect.y1),
+                    text="0003",
+                    fontname="hebo",
+                    fontsize=12.0,
+                )
 
-            elif key in ["postage_date", "postage_from", "postage_weight", "postage_zone"]:
+            elif key in [
+                "postage_date",
+                "postage_from",
+                "postage_weight",
+                "postage_zone",
+            ]:
                 val = str(data.get(key.split("_")[1], ""))
                 if key == "postage_from":
                     val = f"From {data['from']['zip']}"
                 elif key == "postage_zone":
                     val = f"Zone {data.get('zone', '')}"
-                page.insert_text(point=(rect.x0, rect.y1 - 1.5), text=val, fontname="helv", fontsize=8.0)
+                page.insert_text(
+                    point=(rect.x0, rect.y1 - 1.5),
+                    text=val,
+                    fontname="helv",
+                    fontsize=8.0,
+                )
 
         pdf_bytes = doc.tobytes(garbage=4, deflate=True, clean=True)
         doc.close()
@@ -496,7 +556,7 @@ def generate_label(req: LabelRequest):
         return StreamingResponse(
             io.BytesIO(pdf_bytes),
             media_type="application/pdf",
-            headers={"Content-Disposition": "inline; filename=label.pdf"}
+            headers={"Content-Disposition": "inline; filename=label.pdf"},
         )
 
     except HTTPException:
@@ -505,6 +565,12 @@ def generate_label(req: LabelRequest):
         raise HTTPException(status_code=500, detail=f"Server error: {e}") from e
 
 
+@app.get("/")
+def health_check():
+    return {"status": "ok", "service": "USPS Label Generator", "version": "1.0"}
+
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
