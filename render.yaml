@@ -8,4 +8,4 @@ services:
       sudo apt-get update
       sudo apt-get install -y ghostscript
       pip install -r requirements.txt
-    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn server:app --host 0.0.0.0
