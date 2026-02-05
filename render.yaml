@@ -3,6 +3,7 @@ services:
     name: usps-label-api
     env: python
     plan: starter
+    pythonVersion: "3.12"
     buildCommand: |
       sudo apt-get update
       sudo apt-get install -y ghostscript
