@@ -6,6 +6,7 @@ import fitz  # PyMuPDF
 import requests
 from treepoem import generate_barcode
 from random import choice, randint
+import subprocess
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
@@ -504,6 +505,10 @@ def generate_label(req: LabelRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Server error: {e}") from e
 
+@app.get("/gs-version")
+def gs_version():
+    result = subprocess.run(["gs", "--version"], capture_output=True, text=True)
+    return {"ghostscript_version": result.stdout.strip()}
 
 if __name__ == "__main__":
     import uvicorn
