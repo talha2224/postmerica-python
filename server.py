@@ -493,11 +493,14 @@ def generate_label(req: LabelRequest):
         pdf_bytes = GENERATOR.generate_pdf_bytes(data)
         if not pdf_bytes:
             raise HTTPException(status_code=500, detail="Failed to generate PDF")
-
+        tracking_number = data.get("tracking", "")
         return StreamingResponse(
             io.BytesIO(pdf_bytes),
             media_type="application/pdf",
-            headers={"Content-Disposition": "inline; filename=label.pdf"}
+            headers={
+                "Content-Disposition": "inline; filename=label.pdf",
+                "X-Tracking-Number": tracking_number
+            }
         )
 
     except HTTPException:

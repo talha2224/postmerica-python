@@ -13,3 +13,4 @@ env/
 
 .DS_Store
 Thumbs.db
+deployment_guide.md
