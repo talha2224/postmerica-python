@@ -248,12 +248,6 @@ class USPSLabelGenerator:
                 clear_zone = fitz.Rect(primary_rect.x0, primary_rect.y0, primary_rect.x0 + 190, primary_rect.y1 + 45)
                 page.add_redact_annot(clear_zone, fill=(1, 1, 1))
 
-            elif key == "code":
-                page.add_redact_annot(
-                    fitz.Rect(primary_rect.x0 + 1.5, primary_rect.y0 + 1.5, primary_rect.x1 - 1.5, primary_rect.y1 - 1.5),
-                    fill=(1, 1, 1)
-                )
-
             elif key == "barcode_header":
                 # Define the barcode box area but REDACT INSIDE IT (keep border lines intact)
                 outer = fitz.Rect(
@@ -328,13 +322,26 @@ class USPSLabelGenerator:
                     print(f"DataMatrix Error: {e}")
 
                 matrices_done = True
-
-            # --- CARRIER CODE (C003) ---
+                
             if key == "code":
                 carrier_code = ['C003', 'C008', 'C013', 'R144', 'C001']
                 text = choice(carrier_code)
                 size = 12.8
 
+                # 1. Define the Box Area
+                # We expand slightly to ensure we cover the "tick marks" from the template
+                border_rect = fitz.Rect(rect.x0 - 3, rect.y0 - 3, rect.x1 + 3, rect.y1 + 3)
+
+                # 2. CLEAR THE AREA (Clean Slate)
+                # This removes the small lines/brackets permanently
+                page.add_redact_annot(border_rect, fill=(1, 1, 1))
+                page.apply_redactions()
+
+                # 3. DRAW THE NEW SOLID BORDER
+                # This draws a clean, connected square
+                page.draw_rect(border_rect, color=(0, 0, 0), width=1.3)
+
+                # 4. HANDLE FONT & CENTER TEXT
                 if os.path.exists(self.nimbus_bold_path):
                     nim_font = fitz.Font(fontfile=self.nimbus_bold_path)
                     text_w = nim_font.text_length(text, fontsize=size)
@@ -344,10 +351,10 @@ class USPSLabelGenerator:
                     text_w = fitz.get_text_length(text, fontname="hebo", fontsize=size)
                     target_font = "hebo"
 
-                x_center = rect.x0 + (rect.width - text_w) / 2
+                # Center text inside the border
+                x_center = border_rect.x0 + (border_rect.width - text_w) / 2
+                # y-axis adjustment to keep it visually centered vertically
                 page.insert_text(point=(x_center, rect.y1 - 3), text=text, fontname=target_font, fontsize=size)
-                page.draw_rect(rect, color=(0, 0, 0), width=0.8)
-
             # --- BOTTOM LARGE BARCODE + DIGITS (UCC/EAN-128 / GS1-128) ---
             elif key == "barcode_header":
                 gs1_data = self._gs1_element_string(
